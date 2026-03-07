@@ -782,7 +782,7 @@ pub fn run_pairs_backtest<'py>(
 
 /// Run spread backtest (multi-leg options).
 #[pyfunction]
-#[pyo3(signature = (timestamps, underlying_close, legs_premiums, leg_configs, entries, exits, config=None, spread_type="custom", max_loss=None, target_profit=None))]
+#[pyo3(signature = (timestamps, underlying_close, legs_premiums, leg_configs, entries, exits, config=None, spread_type="custom", max_loss=None, target_profit=None, leg_expiry_timestamps=None))]
 pub fn run_spread_backtest<'py>(
     _py: Python<'py>,
     timestamps: PyReadonlyArray1<i64>,
@@ -795,6 +795,7 @@ pub fn run_spread_backtest<'py>(
     spread_type: &str,
     max_loss: Option<f64>,
     target_profit: Option<f64>,
+    leg_expiry_timestamps: Option<Vec<i64>>,
 ) -> PyResult<PyBacktestResult> {
     let ts = numpy_to_vec_i64(timestamps);
     let underlying = numpy_to_vec_f64(underlying_close);
@@ -824,6 +825,10 @@ pub fn run_spread_backtest<'py>(
         "butterfly_put" | "butterflyput" => SpreadType::ButterflyPut,
         "calendar" => SpreadType::Calendar,
         "diagonal" => SpreadType::Diagonal,
+        "long_call" | "longcall" => SpreadType::LongCall,
+        "long_put" | "longput" => SpreadType::LongPut,
+        "naked_call" | "nakedcall" => SpreadType::NakedCall,
+        "naked_put" | "nakedput" => SpreadType::NakedPut,
         _ => SpreadType::Custom,
     };
 
@@ -834,6 +839,7 @@ pub fn run_spread_backtest<'py>(
         max_loss,
         target_profit,
         close_at_eod: false,
+        leg_expiry_timestamps,
     };
 
     let backtest = SpreadBacktest::new(spread_config);
@@ -943,6 +949,10 @@ pub fn batch_spread_backtest(
                 "butterfly_put" | "butterflyput" => SpreadType::ButterflyPut,
                 "calendar" => SpreadType::Calendar,
                 "diagonal" => SpreadType::Diagonal,
+                "long_call" | "longcall" => SpreadType::LongCall,
+                "long_put" | "longput" => SpreadType::LongPut,
+                "naked_call" | "nakedcall" => SpreadType::NakedCall,
+                "naked_put" | "nakedput" => SpreadType::NakedPut,
                 _ => SpreadType::Custom,
             };
 
@@ -953,6 +963,7 @@ pub fn batch_spread_backtest(
                 max_loss: item.max_loss,
                 target_profit: item.target_profit,
                 close_at_eod: false,
+                leg_expiry_timestamps: None,
             };
 
             PreparedItem {

@@ -883,7 +883,7 @@ for trade in result.trades():
     print(trade.pnl)          # Profit/Loss
     print(trade.return_pct)   # Return percentage
     print(trade.fees)         # Fees paid
-    print(trade.exit_reason)  # "Signal", "StopLoss", "TakeProfit"
+    print(trade.exit_reason)  # "Signal", "StopLoss", "TakeProfit", "TrailingStop", "EndOfData", "Settlement"
 ```
 
 ---
@@ -996,6 +996,14 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 ## Changelog
+
+### v0.3.4
+
+- Add single-leg option spread types: `LongCall`, `LongPut`, `NakedCall`, `NakedPut` to `SpreadType` enum
+- Add `ExitReason::Settlement` for option expiry settlement exits
+- Add `leg_expiry_timestamps` parameter to `run_spread_backtest` for per-leg expiry tracking
+- Positions are force-closed at settlement when any leg expires, with premiums replaced by intrinsic value
+- Prevent re-entry after all legs have expired
 
 ### v0.3.3
 

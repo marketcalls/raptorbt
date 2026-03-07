@@ -31,6 +31,10 @@ pub enum SpreadType {
     ButterflyPut,
     Calendar,
     Diagonal,
+    LongCall,
+    LongPut,
+    NakedCall,
+    NakedPut,
     Custom,
 }
 
@@ -95,6 +99,9 @@ pub struct SpreadConfig {
     pub target_profit: Option<f64>,
     /// Whether to close at end of day.
     pub close_at_eod: bool,
+    /// Per-leg expiry timestamps in nanoseconds (optional, for settlement logic).
+    /// When provided, positions are force-closed at or after the earliest leg expiry.
+    pub leg_expiry_timestamps: Option<Vec<i64>>,
 }
 
 impl Default for SpreadConfig {
@@ -106,6 +113,7 @@ impl Default for SpreadConfig {
             max_loss: None,
             target_profit: None,
             close_at_eod: false,
+            leg_expiry_timestamps: None,
         }
     }
 }
@@ -251,9 +259,16 @@ impl SpreadBacktest {
             // Calculate unrealized P&L for exit checks
             let unrealized_pnl = position.as_ref().map(|p| p.total_unrealized_pnl()).unwrap_or(0.0);
 
+            // Check if any leg has expired at this bar
+            let is_expiry = position.is_some()
+                && self.config.leg_expiry_timestamps.as_ref().map_or(false, |expiries| {
+                    expiries.iter().any(|&exp_ts| timestamps[i] >= exp_ts)
+                });
+
             // Check for exit signals or conditions
             let should_exit = position.is_some()
                 && (exits[i]
+                    || is_expiry
                     || self.check_max_loss(&position, unrealized_pnl)
                     || self.check_target_profit(&position, unrealized_pnl));
 
@@ -267,7 +282,9 @@ impl SpreadBacktest {
 
                     // Record trade
                     trade_id += 1;
-                    let exit_reason = if exits[i] {
+                    let exit_reason = if is_expiry {
+                        ExitReason::Settlement
+                    } else if exits[i] {
                         ExitReason::Signal
                     } else if self.check_max_loss(&Some(pos.clone()), pnl) {
                         ExitReason::StopLoss
@@ -311,8 +328,12 @@ impl SpreadBacktest {
                 }
             }
 
-            // Check for entry signals
-            if position.is_none() && entries[i] {
+            // Check for entry signals (don't re-enter after all legs expired)
+            let all_expired =
+                self.config.leg_expiry_timestamps.as_ref().map_or(false, |expiries| {
+                    expiries.iter().all(|&exp_ts| timestamps[i] >= exp_ts)
+                });
+            if position.is_none() && entries[i] && !all_expired {
                 let legs: Vec<LegPosition> = self
                     .config
                     .leg_configs

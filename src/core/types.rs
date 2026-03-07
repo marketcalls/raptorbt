@@ -212,6 +212,8 @@ pub enum ExitReason {
     TrailingStop,
     /// End of data.
     EndOfData,
+    /// Option expiry settlement.
+    Settlement,
 }
 
 /// Backtest configuration.
